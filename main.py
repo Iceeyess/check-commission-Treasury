@@ -82,7 +82,7 @@ def calculate_commission(row, commission_rates):
 
     # Поиск колонки с типом карты
     card_type_column = None
-    possible_names = [' ПС', 'PS', 'Тип карты', 'Card Type', 'Payment System']
+    possible_names = [' ПС', 'ПС', 'PS', 'Тип карты', 'Card Type', 'Payment System']
 
     for name in possible_names:
         if name in row.index:
@@ -153,10 +153,7 @@ def process_file(file_path, results_df, commission_rates):
                     else:
                         row[1].fill = green_fill
 
-
         print(f"Файл обработан и сохранен как: {new_path}")
-
-
         return results_df
 
     except Exception as e:
