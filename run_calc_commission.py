@@ -3,7 +3,10 @@ import os
 import chardet
 from openpyxl.styles import PatternFill
 from datetime import datetime
+import time
 
+
+start_time = time.time()
 
 def load_commission_rates():
     """Загружает ставки комиссий из файла setup.xlsx"""
@@ -22,7 +25,6 @@ def load_commission_rates():
             rate = row['Ставка комиссии']
             commission_rates[card_type] = rate
 
-        commission_rates.setdefault('DEFAULT', 0.01)
         return commission_rates
 
     except Exception as e:
@@ -32,7 +34,7 @@ def load_commission_rates():
             'VISA': 0.0133,
             'CHINA_UNION_PAY': 0.0188,
             'WORLD': 0.0118,
-            'DEFAULT': 0.01
+            'DEFAULT': 0.0118  # Не было вариантов JCB карт в примерах, поэтому оставил DEFAULT, если не найдется с тарифом от JCB
         }
 
 
@@ -218,7 +220,9 @@ def main():
         print(f"Всего найдено расхождений: {len(results_df)}")
     else:
         print("\nРасхождений не обнаружено")
-
+    print(f'Программа завершилась за {time.time() - start_time} сек.')
+    print(f'Через 30 секунд окно закроется самостоятельно.')
+    time.sleep(30)
     return results_df  # Явно возвращаем DataFrame
 
 
