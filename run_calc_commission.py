@@ -3,7 +3,6 @@ import os
 import chardet
 from openpyxl.styles import PatternFill
 from datetime import datetime
-import time
 
 
 start_time = datetime.now()
