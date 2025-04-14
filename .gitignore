@@ -1,5 +1,6 @@
 *.csv
 *.xls
+*.dsvp
 *.xlsx
 .venv/
 .venv

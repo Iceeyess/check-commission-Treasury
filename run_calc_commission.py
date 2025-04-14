@@ -6,7 +6,7 @@ from datetime import datetime
 import time
 
 
-start_time = time.time()
+start_time = datetime.now()
 
 def load_commission_rates():
     """Загружает ставки комиссий из файла setup.xlsx"""
@@ -25,6 +25,7 @@ def load_commission_rates():
             rate = row['Ставка комиссии']
             commission_rates[card_type] = rate
 
+        commission_rates.setdefault('DEFAULT', 0.0118)
         return commission_rates
 
     except Exception as e:
@@ -32,9 +33,9 @@ def load_commission_rates():
         return {
             'MASTER_CARD': 0.0185,
             'VISA': 0.0133,
-            'CHINA_UNION_PAY': 0.0188,
+            'UNION_PAY': 0.0188,
             'WORLD': 0.0118,
-            'DEFAULT': 0.0118  # Не было вариантов JCB карт в примерах, поэтому оставил DEFAULT, если не найдется с тарифом от JCB
+            'DEFAULT': 0.0118
         }
 
 
@@ -48,7 +49,7 @@ def detect_encoding(file_path):
 def read_file_with_encoding(file_path):
     """Читает файл с автоматическим определением кодировки и разделителя"""
     original_encoding = None
-    if file_path.endswith('.csv'):
+    if file_path.endswith('.csv') or file_path.endswith('.dsvp'):
         try:
             # Пробуем UTF-8 с разделителем ;
             df = pd.read_csv(file_path, encoding='utf-8', delimiter=';')
@@ -67,7 +68,7 @@ def read_file_with_encoding(file_path):
                 original_encoding = encoding
                 return df, original_encoding
         except Exception as e:
-            raise ValueError(f"Ошибка чтения CSV файла: {str(e)}")
+            raise ValueError(f"Ошибка чтения файла {file_path}: {str(e)}")
     else:
         try:
             df = pd.read_excel(file_path)
@@ -84,7 +85,7 @@ def calculate_commission(row, commission_rates):
 
     # Поиск колонки с типом карты
     card_type_column = None
-    possible_names = [' ПС', 'ПС', 'PS', 'Тип карты', 'Card Type', 'Payment System']
+    possible_names = [' ПС', 'ПС', ]
 
     for name in possible_names:
         if name in row.index:
@@ -105,7 +106,7 @@ def process_file(file_path, results_df, commission_rates):
     try:
         print(f"\nОбработка файла: {os.path.basename(file_path)}")
         df, original_encoding = read_file_with_encoding(file_path)
-        print("Колонки в файле:", df.columns.tolist())
+
 
         # Проверка необходимых колонок
         required_columns = ['Тип операции', 'Сумма', 'Комиссия']
@@ -156,6 +157,7 @@ def process_file(file_path, results_df, commission_rates):
                         row[1].fill = green_fill
 
         print(f"Файл обработан и сохранен как: {new_path}")
+
         return results_df
 
     except Exception as e:
@@ -176,7 +178,7 @@ def main():
     current_dir = os.getcwd()
     processed_files = [
         os.path.join(current_dir, f) for f in os.listdir(current_dir)
-        if (f.endswith('.xlsx') or f.endswith('.xls') or f.endswith('.csv'))
+        if (f.endswith('.xlsx') or f.endswith('.xls') or f.endswith('.csv') or f.endswith('.dsvp'))
            and not f.startswith('results')
            and not f.endswith('_processed.xlsx')
            and not f.endswith('_processed.xls')
@@ -186,7 +188,7 @@ def main():
 
     if not processed_files:
         print("Не найдено файлов для обработки")
-        return results_df  # Явно возвращаем DataFrame
+        return results_df
 
     # Обрабатываем файлы
     for file_path in processed_files:
@@ -220,11 +222,12 @@ def main():
         print(f"Всего найдено расхождений: {len(results_df)}")
     else:
         print("\nРасхождений не обнаружено")
-    print(f'Программа завершилась за {time.time() - start_time} сек.')
-    print(f'Через 30 секунд окно закроется самостоятельно.')
+
+    print(f'Программа завершилась за {datetime.now() - start_time}.')
+    print('Подождите 30 секунд, и программа сама закроет диалоговое окно.')
     time.sleep(30)
-    return results_df  # Явно возвращаем DataFrame
+    return results_df
 
 
 if __name__ == "__main__":
-    results = main()  # Получаем результаты выполнения
+    results = main()
