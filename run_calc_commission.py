@@ -224,8 +224,8 @@ def main():
         print("\nРасхождений не обнаружено")
 
     print(f'Программа завершилась за {datetime.now() - start_time}.')
-    print('Подождите 30 секунд, и программа сама закроет диалоговое окно.')
-    time.sleep(30)
+    print('Нажмите на Enter для завершения работы.')
+    input()
     return results_df
 
 
