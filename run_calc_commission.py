@@ -7,6 +7,7 @@ from datetime import datetime
 
 start_time = datetime.now()
 
+
 def load_commission_rates():
     """Загружает ставки комиссий из файла setup.xlsx"""
     try:
@@ -24,7 +25,7 @@ def load_commission_rates():
             rate = row['Ставка комиссии']
             commission_rates[card_type] = rate
 
-        commission_rates.setdefault('DEFAULT', 0.0118)
+        commission_rates.setdefault('DEFAULT', 0.01)
         return commission_rates
 
     except Exception as e:
@@ -34,7 +35,8 @@ def load_commission_rates():
             'VISA': 0.0133,
             'UNION_PAY': 0.0188,
             'WORLD': 0.0118,
-            'DEFAULT': 0.0118
+            'JCB': 0.0118,
+            'DEFAULT': 0
         }
 
 
@@ -48,7 +50,7 @@ def detect_encoding(file_path):
 def read_file_with_encoding(file_path):
     """Читает файл с автоматическим определением кодировки и разделителя"""
     original_encoding = None
-    if file_path.endswith('.csv') or file_path.endswith('.dsvp'):
+    if file_path.endswith(('.csv', '.dsv', '.dsvp')):
         try:
             # Пробуем UTF-8 с разделителем ;
             df = pd.read_csv(file_path, encoding='utf-8', delimiter=';')
@@ -71,7 +73,7 @@ def read_file_with_encoding(file_path):
     else:
         try:
             df = pd.read_excel(file_path)
-            original_encoding = None  # Для Excel кодировка не применяется
+            original_encoding = None
             return df, original_encoding
         except Exception as e:
             raise ValueError(f"Ошибка чтения Excel файла: {str(e)}")
@@ -106,7 +108,6 @@ def process_file(file_path, results_df, commission_rates):
         print(f"\nОбработка файла: {os.path.basename(file_path)}")
         df, original_encoding = read_file_with_encoding(file_path)
 
-
         # Проверка необходимых колонок
         required_columns = ['Тип операции', 'Сумма', 'Комиссия']
         missing_columns = [col for col in required_columns if col not in df.columns]
@@ -121,13 +122,13 @@ def process_file(file_path, results_df, commission_rates):
         )
         df['Разница (F - U)'] = df['Разница (F - U)'].round(2)
 
-        # Сохраняем расхождения
+        # Сохраняем ВСЕ расхождения (отличные от нуля)
         discrepancies = df[df['Разница (F - U)'] != 0].copy()
         if not discrepancies.empty:
             discrepancies['Файл'] = os.path.basename(file_path)
             results_df = pd.concat([results_df, discrepancies], ignore_index=True)
 
-        # Сохраняем файл в соответствующем формате
+        # Сохраняем файл в XLSX
         base_name = os.path.splitext(os.path.basename(file_path))[0]
         new_path = os.path.join(os.path.dirname(file_path), f"{base_name}_processed.xlsx")
 
@@ -145,18 +146,18 @@ def process_file(file_path, results_df, commission_rates):
             gray_fill = PatternFill(start_color='DDDDDD', end_color='DDDDDD', fill_type='solid')
 
             for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=u_col, max_col=v_col):
-                if row[0].value is not None:
+                if row[0].value is not None:  # Колонка U
                     row[0].fill = green_fill if row[0].value != 0 else gray_fill
-                if row[1].value is not None:
-                    if row[1].value == 0:
+
+                if row[1].value is not None:  # Колонка V
+                    if row[1].value == 0:  # Нулевая разница
                         row[1].fill = gray_fill
-                    elif row[1].value < 0:
+                    elif row[1].value < 0:  # Отрицательная разница
                         row[1].fill = red_fill
-                    else:
+                    else:  # Положительная разница (включая 0.01)
                         row[1].fill = green_fill
 
         print(f"Файл обработан и сохранен как: {new_path}")
-
         return results_df
 
     except Exception as e:
@@ -177,7 +178,8 @@ def main():
     current_dir = os.getcwd()
     processed_files = [
         os.path.join(current_dir, f) for f in os.listdir(current_dir)
-        if (f.endswith('.xlsx') or f.endswith('.xls') or f.endswith('.csv') or f.endswith('.dsvp'))
+        if (f.endswith('.xlsx') or f.endswith('.xls') or
+            f.endswith('.csv') or f.endswith('.dsv') or f.endswith('.dsvp'))
            and not f.startswith('results')
            and not f.endswith('_processed.xlsx')
            and not f.endswith('_processed.xls')
@@ -196,7 +198,7 @@ def main():
     # Сохраняем результаты
     results_path = os.path.join(current_dir, 'results.xlsx')
     if os.path.exists(results_path):
-        open(results_path, 'w').close()  # Очищаем файл
+        open(results_path, 'w').close()
 
     if not results_df.empty:
         results_df['Время обработки'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -208,22 +210,24 @@ def main():
 
             red_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
             green_fill = PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid')
+            gray_fill = PatternFill(start_color='DDDDDD', end_color='DDDDDD', fill_type='solid')
 
             diff_col = results_df.columns.get_loc('Разница (F - U)') + 1
             for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=diff_col, max_col=diff_col):
                 if row[0].value is not None:
-                    if row[0].value < 0:
+                    if row[0].value == 0:
+                        row[0].fill = gray_fill
+                    elif row[0].value < 0:
                         row[0].fill = red_fill
-                    elif row[0].value > 0:
+                    else:
                         row[0].fill = green_fill
 
         print(f"\nСводный файл с расхождениями сохранен как: {results_path}")
-        print(f"Всего найдено расхождений: {len(results_df)}")
+        print(f"Всего найдено расхождений (≠0): {len(results_df)}")
     else:
-        print("\nРасхождений не обнаружено")
-
-    print(f'Программа завершилась за {datetime.now() - start_time}.')
-    print('Нажмите на Enter для завершения работы.')
+        print("\nРасхождений (≠0) не обнаружено")
+    print(f'Программа завершилась за {datetime.now() - start_time}')
+    print('Нажмите на ENTER для продолжения')
     input()
     return results_df
 
